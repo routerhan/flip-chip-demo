@@ -42,12 +42,18 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+ROOT = Path(__file__).resolve().parent
+
 def load_model_and_scaler():
     """載入縮放器與 MLP 模型（47 → 1200）。"""
-    scaler_X = joblib.load("scaler_X_C.pkl")
-    scaler_y = joblib.load("scaler_Y_C.pkl")  # 注意：Y 大寫，與你的最終版一致
+    scaler_X_path = ROOT / "scaler_X_C.pkl"
+    scaler_y_path = ROOT / "scaler_Y_C.pkl"
+    model_path = ROOT / "mlp_xyz_C.pt"
+
+    scaler_X = joblib.load(scaler_X_path)
+    scaler_y = joblib.load(scaler_y_path)
     model = MLP(input_dim=47).to(device)
-    state = torch.load("mlp_xyz_C.pt", map_location=device)
+    state = torch.load(model_path, map_location=device)
     model.load_state_dict(state)
     model.eval()
     return model, scaler_X, scaler_y
