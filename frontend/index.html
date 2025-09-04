@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGA-AI Frontend Prototype</title>
+    <!-- Import Plotly.js library -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            max-width: 1400px;
+        }
+        .form-panel, .result-panel {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .form-panel {
+            width: 450px;
+            flex-shrink: 0;
+        }
+        .result-panel {
+            flex-grow: 1;
+        }
+        h1, h2 {
+            color: #1a253c;
+            border-bottom: 2px solid #eef2f5;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eef2f5;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px; /* Align with container border */
+        }
+        .tab-button.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            resize: vertical;
+            font-family: monospace;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #plot-container {
+            width: 100%;
+            height: 60vh;
+            min-height: 400px;
+        }
+        #result-summary {
+            background-color: #eef2f5;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- ==================== Input Form Panel ==================== -->
+    <div class="form-panel">
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="convex">Convex Prediction</button>
+            <button class="tab-button" data-tab="concave">Concave Prediction</button>
+        </div>
+
+        <!-- Convex Tab Content -->
+        <div id="convex-tab-content" class="tab-content active">
+            <form id="convex-form">
+                <div class="form-group">
+                    <label for="tool_height_c">Tool Height (mm)</label>
+                    <input type="number" id="tool_height_c" value="0.0" step="0.001" required>
+                </div>
+                <div class="form-group">
+                    <label for="magnet_c">Number of Magnets</label>
+                    <input type="number" id="magnet_c" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="jig_c">Jig Thickness (mm)</label>
+                    <input type="number" id="jig_c" value="1.0" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="copper_c">Copper Ratio (%)</label>
+                    <select id="copper_c" required>
+                        <option>100</option><option>90</option><option>85</option><option>80</option><option>75</option><option>70</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Jig Center Hole (B1 × W1)</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="b1_c" value="40" required>
+                        <span>×</span>
+                        <input type="number" id="w1_c" value="47" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="substrate_c">Substrate Spec (mm)</label>
+                    <select id="substrate_c" required>
+                        <option>55</option><option>65</option><option>75</option><option>85</option><option>105</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sbthk_vals_c">Substrate Layer Thickness (33 values, comma-separated)</label>
+                    <textarea id="sbthk_vals_c" rows="4" required>0.015,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.018,1.24,0.018,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.018</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="material_vals_c">Substrate Material Params (7 values, comma-separated)</label>
+                    <textarea id="material_vals_c" rows="2" required>14900,0.43,500,0.43,1.1e-05,3.7e-05,130</textarea>
+                </div>
+                <button type="submit">Start Prediction</button>
+            </form>
+        </div>
+
+        <!-- Concave Tab Content -->
+        <div id="concave-tab-content" class="tab-content">
+            <form id="concave-form">
+                <!-- Note: No Tool Height for Concave model -->
+                <div class="form-group">
+                    <label for="magnet_s">Number of Magnets</label>
+                    <input type="number" id="magnet_s" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="jig_s">Jig Thickness (mm)</label>
+                    <input type="number" id="jig_s" value="1.0" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label for="copper_s">Copper Ratio (%)</label>
+                    <select id="copper_s" required>
+                        <option>100</option><option>90</option><option>85</option><option>80</option><option>75</option><option>70</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Jig Center Hole (B1 × W1)</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="b1_s" value="40" required>
+                        <span>×</span>
+                        <input type="number" id="w1_s" value="47" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="substrate_s">Substrate Spec (mm)</label>
+                    <select id="substrate_s" required>
+                        <option>55</option><option>65</option><option>75</option><option>85</option><option>105</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sbthk_vals_s">Substrate Layer Thickness (33 values, comma-separated)</label>
+                    <textarea id="sbthk_vals_s" rows="4" required>0.015,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.018,1.24,0.018,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.03,0.015,0.018</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="material_vals_s">Substrate Material Params (7 values, comma-separated)</label>
+                    <textarea id="material_vals_s" rows="2" required>14900,0.43,500,0.43,1.1e-05,3.7e-05,130</textarea>
+                </div>
+                <button type="submit">Start Prediction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== Result Display Panel ==================== -->
+    <div class="result-panel">
+        <h2>Prediction Result</h2>
+        <div id="result-summary">Results will be displayed here...</div>
+        <h2 style="margin-top: 20px;">3D Surface Plot</h2>
+        <div id="plot-container"></div>
+        <div id="status"></div>
+    </div>
+</div>
+
+<script>
+    // Get UI elements
+    const statusDiv = document.getElementById('status');
+    const summaryDiv = document.getElementById('result-summary');
+    const plotDiv = document.getElementById('plot-container');
+    const tabsContainer = document.querySelector('.tabs');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const convexForm = document.getElementById('convex-form');
+    const concaveForm = document.getElementById('concave-form');
+
+    // --- Tab Switching Logic ---
+    tabsContainer.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const targetTab = e.target.dataset.tab;
+
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+
+            tabContents.forEach(content => {
+                if (content.id === `${targetTab}-tab-content`) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+        }
+    });
+
+    // --- Form Submission Logic ---
+    convexForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        handlePrediction(convexForm, '/predict/convex');
+    });
+
+    concaveForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        handlePrediction(concaveForm, '/predict/concave');
+    });
+
+    async function handlePrediction(formElement, endpoint) {
+        // 1. Show loading status
+        statusDiv.textContent = 'Predicting, please wait...';
+        statusDiv.style.color = '#007bff';
+        statusDiv.style.backgroundColor = '#e7f3ff';
+        summaryDiv.textContent = 'Waiting for API response...';
+        Plotly.purge(plotDiv); // Clear old plot
+
+        try {
+            // 2. Collect and format data from the form
+            const formIdPrefix = formElement.id.split('-')[0]; // 'convex' or 'concave'
+            const suffix = formIdPrefix === 'convex' ? 'c' : 's'; // Correctly determine the suffix
+
+            const sbthkVals = formElement.querySelector(`#sbthk_vals_${suffix}`).value.split(',').map(Number);
+            const materialVals = formElement.querySelector(`#material_vals_${suffix}`).value.split(',').map(Number);
+
+            // Simple client-side validation
+            if (sbthkVals.length !== 33 || materialVals.length !== 7) {
+                throw new Error('Substrate Layer Thickness must have 33 values, and Material Params must have 7 values.');
+            }
+
+            const payload = { // Common fields
+                magnet: parseInt(formElement.querySelector(`#magnet_${suffix}`).value),
+                jig: parseFloat(formElement.querySelector(`#jig_${suffix}`).value),
+                copper: parseInt(formElement.querySelector(`#copper_${suffix}`).value),
+                b1: parseInt(formElement.querySelector(`#b1_${suffix}`).value),
+                w1: parseInt(formElement.querySelector(`#w1_${suffix}`).value),
+                substrate: parseInt(formElement.querySelector(`#substrate_${suffix}`).value),
+                sbthk_vals: sbthkVals,
+                material_vals: materialVals,
+            };
+
+            // Add tool_height only for convex model
+            if (formIdPrefix === 'convex') {
+                payload.tool_height = parseFloat(formElement.querySelector('#tool_height_c').value);
+            }
+
+            // 3. Call the backend API
+            const response = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`API Error: ${response.status} - ${errorData.detail || 'Unknown error'}`);
+            }
+
+            const result = await response.json();
+
+            // 4. Display text results
+            displaySummary(result);
+
+            // 5. Draw 3D plot
+            draw3DPlot(result.plot_data);
+
+            statusDiv.textContent = 'Prediction Complete!';
+            statusDiv.style.color = 'green';
+            statusDiv.style.backgroundColor = '#eafaf1';
+
+        } catch (error) {
+            // 6. Handle errors
+            console.error('Prediction failed:', error);
+            statusDiv.textContent = `Error: ${error.message}`;
+            statusDiv.style.color = 'red';
+            statusDiv.style.backgroundColor = '#fdecea';
+            summaryDiv.textContent = 'Prediction failed. Please check the console for more details.';
+        }
+    }
+
+    function displaySummary(result) {
+        // Translate keys from backend for display
+        const keyTranslations = {
+            "Substrate規格": "Substrate Spec",
+            "Copper Ratio": "Copper Ratio",
+            "磁鐵數量": "Number of Magnets",
+            "Jig厚度": "Jig Thickness",
+            "Jig中心矩形孔": "Jig Center Hole",
+            "Tool高度": "Tool Height"
+        };
+
+        let summaryText = `Predicted Warpage: ${result.warpage_um.toFixed(2)} μm\n\n`;
+        summaryText += "--- Input Parameter Summary ---\n";
+        for (const [key, value] of Object.entries(result.input_summary)) {
+            const translatedKey = keyTranslations[key] || key;
+            summaryText += `${translatedKey}: ${value}\n`;
+        }
+        summaryDiv.textContent = summaryText;
+    }
+
+    function draw3DPlot(plotData) {
+        // Backend has done the interpolation, frontend can use the x, y, z data directly
+        const data = [{
+            x: plotData.x,
+            y: plotData.y,
+            z: plotData.z,
+            type: 'surface',
+            colorscale: 'Turbo',
+            colorbar: { title: 'Z (mm)' }
+        }];
+
+        // --- Dynamic Axis & Camera Calculation ---
+        // This logic replicates matplotlib's `set_axes_equal` to ensure
+        // the entire object is visible on initial render.
+
+        // 1. Find the data range for each axis
+        const x_range = [Math.min(...plotData.x), Math.max(...plotData.x)];
+        const y_range = [Math.min(...plotData.y), Math.max(...plotData.y)];
+        const z_flat = plotData.z.flat().filter(v => v !== null);
+        const z_range = [Math.min(...z_flat), Math.max(...z_flat)];
+
+        // 2. Calculate the midpoint and span of each axis
+        const x_span = x_range[1] - x_range[0];
+        const y_span = y_range[1] - y_range[0];
+        const z_span = z_range[1] - z_range[0];
+        const x_middle = x_range[0] + x_span / 2;
+        const y_middle = y_range[0] + y_span / 2;
+        const z_middle = z_range[0] + z_span / 2;
+
+        // 3. Determine the largest span to create a cubic viewport
+        const max_span = Math.max(x_span, y_span, z_span);
+
+        // 4. Define a scaling factor for the camera distance. A larger value means further away.
+        const camera_distance_factor = 0.8;
+
+        const layout = {
+            title: 'Warpage 3D Surface Plot',
+            scene: {
+                // 5. Set all axes to the same range for a proportional view
+                xaxis: { title: 'X (mm)', range: [x_middle - max_span / 2, x_middle + max_span / 2] },
+                yaxis: { title: 'Y (mm)', range: [y_middle - max_span / 2, y_middle + max_span / 2] },
+                zaxis: { title: 'Z (mm)', range: [z_middle - max_span / 2, z_middle + max_span / 2] },
+                aspectmode: 'data', // Make axes proportional
+                camera: {
+                    up: { x: 0, y: 0, z: 1 }, // Sets the 'up' direction (Z-axis is up)
+                    // 6. Set the camera to look at the center of the object
+                    center: { x: x_middle, y: y_middle, z: z_middle },
+                    // 7. Position the camera dynamically based on the object's size
+                    eye: { x: x_middle + max_span * camera_distance_factor, y: y_middle + max_span * camera_distance_factor, z: z_middle + max_span * camera_distance_factor }
+                }
+            },
+            margin: { l: 40, r: 40, b: 40, t: 60 }
+        };
+
+        Plotly.newPlot(plotDiv, data, layout);
+    }
+</script>

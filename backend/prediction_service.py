@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 from pathlib import Path
 from . import schemas
+from scipy.interpolate import griddata
 
 # --- 1. 設定資源路徑 ---
 # 使用 Path(__file__) 來確保無論從哪裡執行，路徑都是正確的
@@ -94,10 +95,26 @@ class PredictionService:
             "Tool高度": f"{inputs.tool_height:.4f} (mm)"
         }
 
+        # --- 在後端進行插值處理，為 Plotly.js 準備網格數據 ---
+        # 建立網格座標
+        grid_x, grid_y = np.mgrid[
+            np.min(x_def):np.max(x_def):100j,
+            np.min(y_def):np.max(y_def):100j
+        ]
+        # 對 Z 值進行插值
+        grid_z = griddata(
+            points=(x_def, y_def),
+            values=z_def,
+            xi=(grid_x, grid_y),
+            method='cubic'
+        )
+        # 將 NaN 替換為 None，以便 JSON 序列化，Plotly.js 會將 null 視為圖中的空洞
+        grid_z_list = np.where(np.isnan(grid_z), None, grid_z).tolist()
+
         plot_data = schemas.PlotData(
-            x_coords=x_def.tolist(),
-            y_coords=y_def.tolist(),
-            z_coords=z_def.tolist()
+            x=grid_x[:, 0].tolist(),
+            y=grid_y[0, :].tolist(),
+            z=grid_z_list
         )
 
         return schemas.PredictionOutput(
@@ -137,10 +154,23 @@ class PredictionService:
             "Jig中心矩形孔": f"{inputs.b1}x{inputs.w1} (mm²)",
         }
 
+        # --- 在後端進行插值處理，為 Plotly.js 準備網格數據 ---
+        grid_x, grid_y = np.mgrid[
+            np.min(x_def):np.max(x_def):100j,
+            np.min(y_def):np.max(y_def):100j
+        ]
+        grid_z = griddata(
+            points=(x_def, y_def),
+            values=z_def,
+            xi=(grid_x, grid_y),
+            method='cubic'
+        )
+        grid_z_list = np.where(np.isnan(grid_z), None, grid_z).tolist()
+
         plot_data = schemas.PlotData(
-            x_coords=x_def.tolist(),
-            y_coords=y_def.tolist(),
-            z_coords=z_def.tolist()
+            x=grid_x[:, 0].tolist(),
+            y=grid_y[0, :].tolist(),
+            z=grid_z_list
         )
 
         return schemas.PredictionOutput(

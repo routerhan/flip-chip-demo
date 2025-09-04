@@ -24,9 +24,9 @@ class PredictionInputS(BaseModel):
     material_vals: List[float] = Field(..., min_items=7, max_items=7, description="Substrate材料參數 (7個數值)")
 
 class PlotData(BaseModel):
-    x_coords: List[float]
-    y_coords: List[float]
-    z_coords: List[float]
+    x: List[float] = Field(..., description="X 軸網格座標 (1D)")
+    y: List[float] = Field(..., description="Y 軸網格座標 (1D)")
+    z: List[List[float | None]] = Field(..., description="Z 軸高度值 (2D 網格)")
 
 class PredictionOutput(BaseModel):
     warpage_um: float = Field(..., description="預測的翹曲值 (μm)")

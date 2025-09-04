@@ -1,12 +1,25 @@
 from fastapi import FastAPI, HTTPException
 from . import schemas
 from .prediction_service import PredictionService
+from fastapi.middleware.cors import CORSMiddleware
 
 # 建立 FastAPI 應用
 app = FastAPI(
     title="BGA-AI Prediction API",
     description="API for predicting BGA warpage.",
     version="1.0.0"
+)
+
+# --- 設定 CORS 中介軟體 ---
+# origins 列表可以是 "*" (允許所有來源)，或是一個包含您前端 URL 的列表
+# 例如：["http://localhost", "http://localhost:8080"]
+# 在開發階段，使用 "*" 是最方便的。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允許所有來源
+    allow_credentials=True,
+    allow_methods=["*"],  # 允許所有 HTTP 方法
+    allow_headers=["*"],  # 允許所有 HTTP 標頭
 )
 
 # 實例化服務，模型會在此時載入記憶體
