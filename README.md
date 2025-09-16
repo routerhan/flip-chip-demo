@@ -2,14 +2,16 @@
 
 ## Overview
 
-This project provides a suite of tools for predicting and optimizing against BGA (Ball Grid Array) warpage during the manufacturing process. It has been migrated from a PySide6 desktop application to a modern web architecture, featuring:
+This project provides a suite of tools for predicting and optimizing against BGA (Ball Grid Array) warpage during the manufacturing process. It has been migrated from a PySide6 desktop application to a modern microservices architecture, featuring:
 
--   A **FastAPI Backend** that serves pre-trained machine learning models for warpage prediction.
--   A **Vanilla JS & HTML Frontend** that provides an interactive user interface for making predictions and visualizing the results in 3D.
+-   **Two Independent FastAPI Backends**:
+    -   A **Prediction Service** for real-time warpage prediction.
+    -   An **AI Design Service** for running computationally intensive parameter optimization tasks.
+-   **Two Separate HTML Frontends**: Each frontend is tailored to a specific backend service, providing a clear and focused user experience.
 
 The core functionalities include:
 -   **Warpage Prediction**: Predicts the 3D warpage surface for both convex and concave scenarios based on a set of process parameters.
--   **AI Design (WIP)**: A future module to find optimal process parameters to achieve a target warpage value using Reinforcement Learning (DDQN).
+-   **AI Design**: Finds optimal process parameters to achieve a target warpage value using Reinforcement Learning (DDQN). This is handled as an asynchronous background task to prevent UI freezes.
 
 ## Project Structure
 

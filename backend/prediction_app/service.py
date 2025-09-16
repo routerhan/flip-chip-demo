@@ -5,12 +5,8 @@ from pathlib import Path
 from . import schemas
 from scipy.interpolate import griddata
 
-# --- 1. 設定資源路徑 ---
-# 使用 Path(__file__) 來確保無論從哪裡執行，路徑都是正確的
-ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent.parent.parent / "assets"
 
-# --- 2. 定義模型結構 ---
-# 這些程式碼與原 GUI 中的 MLP 類別完全相同
 class MLP_C(torch.nn.Module):
     def __init__(self, input_dim=47):
         super().__init__()
@@ -22,7 +18,6 @@ class MLP_C(torch.nn.Module):
             torch.nn.Linear(256, 128), torch.nn.ReLU(), torch.nn.Dropout(0.1),
             torch.nn.Linear(128, 1200)
         )
-
     def forward(self, x):
         return self.net(x)
 
@@ -35,19 +30,14 @@ class MLP_S(torch.nn.Module):
             torch.nn.Linear(128, 64), torch.nn.ReLU(),
             torch.nn.Linear(64, 1200)
         )
-
     def forward(self, x):
         return self.net(x)
 
-# --- 3. 建立服務類別，將模型作為單例載入 ---
-# 這樣可以避免每次 API 請求都重新載入模型，大幅提升效能
 class PredictionService:
     def __init__(self):
-        """在服務實例化時，只載入一次模型和縮放器"""
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Prediction service is using device: {self.device}")
 
-        # 載入 Convex (C) 模型
         self.model_c = MLP_C().to(self.device)
         self.model_c.load_state_dict(torch.load(ASSETS_DIR / "mlp_xyz_C.pt", map_location=self.device))
         self.model_c.eval()
@@ -55,7 +45,6 @@ class PredictionService:
         self.scaler_y_c = joblib.load(ASSETS_DIR / "scaler_Y_C.pkl")
         print("Convex (C) models loaded successfully.")
 
-        # 載入 Concave (S) 模型
         self.model_s = MLP_S().to(self.device)
         self.model_s.load_state_dict(torch.load(ASSETS_DIR / "mlp_xyz_S.pt", map_location=self.device))
         self.model_s.eval()
@@ -64,28 +53,20 @@ class PredictionService:
         print("Concave (S) models loaded successfully.")
 
     def run_prediction_c(self, inputs: schemas.PredictionInputC) -> schemas.PredictionOutput:
-        """執行 Convex (C) 預測的核心邏輯"""
-        # 組合輸入特徵向量，順序必須與訓練時完全一致
         basic_features = [
             inputs.tool_height, inputs.magnet, inputs.jig, inputs.copper,
             inputs.b1, inputs.w1, inputs.substrate
         ]
         X = np.array([basic_features + inputs.sbthk_vals + inputs.material_vals], dtype=float)
-
-        # 數據縮放與預測
         X_scaled = self.scaler_x_c.transform(X)
         with torch.no_grad():
             X_tensor = torch.tensor(X_scaled, dtype=torch.float32, device=self.device)
             y_pred_scaled = self.model_c(X_tensor).cpu().numpy()
             y_pred = self.scaler_y_c.inverse_transform(y_pred_scaled)[0]
 
-        # 解析預測結果
         x_def, y_def, z_def = y_pred[0:400], y_pred[400:800], y_pred[800:1200]
-
-        # 計算翹曲值 (warpage)
         warpage_um = (float(np.max(z_def)) - float(np.min(z_def))) * 1000.0
 
-        # 準備回傳的資料
         input_summary = {
             "Substrate規格": f"{inputs.substrate}x{inputs.substrate} (mm²)",
             "Copper Ratio": f"{inputs.copper} (%)",
@@ -95,57 +76,26 @@ class PredictionService:
             "Tool高度": f"{inputs.tool_height:.4f} (mm)"
         }
 
-        # --- 在後端進行插值處理，為 Plotly.js 準備網格數據 ---
-        # 建立網格座標
-        grid_x, grid_y = np.mgrid[
-            np.min(x_def):np.max(x_def):100j,
-            np.min(y_def):np.max(y_def):100j
-        ]
-        # 對 Z 值進行插值
-        grid_z = griddata(
-            points=(x_def, y_def),
-            values=z_def,
-            xi=(grid_x, grid_y),
-            method='cubic'
-        )
-        # 將 NaN 替換為 None，以便 JSON 序列化，Plotly.js 會將 null 視為圖中的空洞
+        grid_x, grid_y = np.mgrid[np.min(x_def):np.max(x_def):100j, np.min(y_def):np.max(y_def):100j]
+        grid_z = griddata(points=(x_def, y_def), values=z_def, xi=(grid_x, grid_y), method='cubic')
         grid_z_list = np.where(np.isnan(grid_z), None, grid_z).tolist()
 
-        plot_data = schemas.PlotData(
-            x=grid_x[:, 0].tolist(),
-            y=grid_y[0, :].tolist(),
-            z=grid_z_list
-        )
+        plot_data = schemas.PlotData(x=grid_x[:, 0].tolist(), y=grid_y[0, :].tolist(), z=grid_z_list)
 
-        return schemas.PredictionOutput(
-            warpage_um=warpage_um,
-            input_summary=input_summary,
-            plot_data=plot_data
-        )
+        return schemas.PredictionOutput(warpage_um=warpage_um, input_summary=input_summary, plot_data=plot_data)
 
     def run_prediction_s(self, inputs: schemas.PredictionInputS) -> schemas.PredictionOutput:
-        """執行 Concave (S) 預測的核心邏輯"""
-        # 組合輸入特徵向量，順序必須與訓練時完全一致
-        basic_features = [
-            inputs.magnet, inputs.jig, inputs.copper,
-            inputs.b1, inputs.w1, inputs.substrate
-        ]
+        basic_features = [inputs.magnet, inputs.jig, inputs.copper, inputs.b1, inputs.w1, inputs.substrate]
         X = np.array([basic_features + inputs.sbthk_vals + inputs.material_vals], dtype=float)
-
-        # 數據縮放與預測
         X_scaled = self.scaler_x_s.transform(X)
         with torch.no_grad():
             X_tensor = torch.tensor(X_scaled, dtype=torch.float32, device=self.device)
             y_pred_scaled = self.model_s(X_tensor).cpu().numpy()
             y_pred = self.scaler_y_s.inverse_transform(y_pred_scaled)[0]
 
-        # 解析預測結果
         x_def, y_def, z_def = y_pred[0:400], y_pred[400:800], y_pred[800:1200]
-
-        # 計算翹曲值 (warpage)，注意 S 模型計算方式帶有負號
         warpage_um = -(float(np.max(z_def)) - float(np.min(z_def))) * 1000.0
 
-        # 準備回傳的資料
         input_summary = {
             "Substrate規格": f"{inputs.substrate}x{inputs.substrate} (mm²)",
             "Copper Ratio": f"{inputs.copper} (%)",
@@ -154,27 +104,10 @@ class PredictionService:
             "Jig中心矩形孔": f"{inputs.b1}x{inputs.w1} (mm²)",
         }
 
-        # --- 在後端進行插值處理，為 Plotly.js 準備網格數據 ---
-        grid_x, grid_y = np.mgrid[
-            np.min(x_def):np.max(x_def):100j,
-            np.min(y_def):np.max(y_def):100j
-        ]
-        grid_z = griddata(
-            points=(x_def, y_def),
-            values=z_def,
-            xi=(grid_x, grid_y),
-            method='cubic'
-        )
+        grid_x, grid_y = np.mgrid[np.min(x_def):np.max(x_def):100j, np.min(y_def):np.max(y_def):100j]
+        grid_z = griddata(points=(x_def, y_def), values=z_def, xi=(grid_x, grid_y), method='cubic')
         grid_z_list = np.where(np.isnan(grid_z), None, grid_z).tolist()
 
-        plot_data = schemas.PlotData(
-            x=grid_x[:, 0].tolist(),
-            y=grid_y[0, :].tolist(),
-            z=grid_z_list
-        )
+        plot_data = schemas.PlotData(x=grid_x[:, 0].tolist(), y=grid_y[0, :].tolist(), z=grid_z_list)
 
-        return schemas.PredictionOutput(
-            warpage_um=warpage_um,
-            input_summary=input_summary,
-            plot_data=plot_data
-        )
+        return schemas.PredictionOutput(warpage_um=warpage_um, input_summary=input_summary, plot_data=plot_data)

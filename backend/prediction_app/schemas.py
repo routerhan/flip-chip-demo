@@ -13,7 +13,6 @@ class PredictionInputC(BaseModel):
     material_vals: List[float] = Field(..., min_items=7, max_items=7, description="Substrate材料參數 (7個數值)")
 
 class PredictionInputS(BaseModel):
-    # 注意：S 模型沒有 tool_height
     magnet: int = Field(..., example=10, description="磁鐵數量")
     jig: float = Field(..., example=1.0, description="Jig厚度 (mm)")
     copper: int = Field(..., example=100, description="Copper Ratio (%)")
