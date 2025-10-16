@@ -62,12 +62,14 @@ pip install -r requirements.txt
 
 ## How to Run
 
-The application consists of two main parts: the backend server and the frontend interface. They must be run separately.
+此應用程式包含兩個獨立的後端 API 服務和對應的前端介面，您需要分別啟動這兩個後端服務。
 
-### 1. Start the Backend API Server
-Navigate to the project's root directory in your terminal and run the following command to start the FastAPI server:
+### 1. 啟動後端 API 伺服器
+請在您的終端機中，從專案的根目錄執行以下兩個指令。建議您開啟兩個終端機視窗來分別執行它們。
+
+**啟動翹曲預測服務 (Prediction Service):**
 ```bash
-uvicorn backend.main:app --reload
+uvicorn backend.prediction_app.main:app --port 8000 --reload
 ```
 -   The server will be available at `http://127.0.0.1:8000`.
 -   The `--reload` flag enables hot-reloading, which automatically restarts the server when you make changes to the code.
