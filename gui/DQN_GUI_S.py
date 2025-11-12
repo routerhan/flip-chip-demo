@@ -52,6 +52,8 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+ROOT = Path(__file__).resolve().parent
+
 def load_model_and_scaler():
     """載入縮放器與 MLP 模型（47 → 1200）。"""
     scaler_X = joblib.load(SCALER_X_PATH)
